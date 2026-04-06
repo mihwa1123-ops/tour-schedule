@@ -8,6 +8,7 @@ export default function GuidesPage() {
   const [guides, setGuides] = useState<Guide[]>([]);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -26,12 +27,13 @@ export default function GuidesPage() {
     const res = await fetch("/api/guides", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email }),
+      body: JSON.stringify({ name, email, password }),
     });
 
     if (res.ok) {
       setName("");
       setEmail("");
+      setPassword("");
       fetchGuides();
     } else {
       const data = await res.json();
@@ -54,7 +56,7 @@ export default function GuidesPage() {
 
         <form onSubmit={handleAdd} className="mb-8 p-4 bg-white rounded-lg border border-gray-200 space-y-3">
           <h3 className="text-sm font-medium text-gray-700">인솔자 추가</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <input
               type="text"
               value={name}
@@ -69,6 +71,15 @@ export default function GuidesPage() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="이메일"
               required
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            />
+            <input
+              type="text"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="비밀번호 (6자 이상)"
+              required
+              minLength={6}
               className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
           </div>

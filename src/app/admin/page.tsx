@@ -244,15 +244,14 @@ export default function AdminSchedulePage() {
                           )
                         )}
                       </td>
-                      <td className="border border-gray-200 px-2 py-1.5 max-w-[200px]">
+                      <td className="border border-gray-200 px-2 py-1.5">
                         {!monday && schedule && (
-                          <input
-                            type="text"
+                          <textarea
                             value={schedule.notes}
                             onChange={(e) => updateSchedule(schedule.id, "notes", e.target.value)}
-                            className="w-full bg-transparent text-sm border-0 p-0 focus:ring-0 truncate"
+                            className="w-full bg-transparent text-sm border-0 p-0 focus:ring-0 resize-none min-w-[150px]"
                             placeholder="특이사항"
-                            title={schedule.notes}
+                            rows={Math.max(1, Math.ceil((schedule.notes?.length || 0) / 15))}
                           />
                         )}
                       </td>

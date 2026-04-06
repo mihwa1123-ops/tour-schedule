@@ -16,11 +16,15 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   const supabase = createAdminClient();
-  const { name, email } = await request.json();
+  const { name, email, password } = await request.json();
 
-  // Supabase Auth에 사용자 초대 (Magic Link 전용)
+  if (!password || password.length < 6) {
+    return NextResponse.json({ error: "비밀번호는 6자 이상이어야 합니다." }, { status: 400 });
+  }
+
   const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
     email,
+    password,
     email_confirm: true,
   });
 
