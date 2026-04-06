@@ -125,29 +125,6 @@ export default function GuidesPage() {
           </button>
         </form>
 
-        {guides.length > 0 && (
-          <div className="mb-8 p-4 bg-white rounded-lg border border-gray-200 space-y-3">
-            <h3 className="text-sm font-medium text-gray-700">전체 비밀번호 일괄 변경</h3>
-            <div className="flex items-center gap-3">
-              <input
-                type="text"
-                value={bulkPassword}
-                onChange={(e) => setBulkPassword(e.target.value)}
-                placeholder="새 비밀번호 (4자 이상)"
-                className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              />
-              <button
-                onClick={handleBulkPassword}
-                disabled={bulkLoading || !bulkPassword || bulkPassword.length < 4}
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
-              >
-                {bulkLoading ? "변경 중..." : `전체 ${guides.length}명 변경`}
-              </button>
-            </div>
-            {bulkMsg && <p className={`text-sm ${bulkMsg.includes("완료") ? "text-green-600" : "text-red-600"}`}>{bulkMsg}</p>}
-          </div>
-        )}
-
         <div className="bg-white rounded-lg border border-gray-200">
           <div className="px-4 py-3 border-b border-gray-200">
             <h3 className="text-sm font-medium text-gray-700">인솔자 목록 ({guides.length}명)</h3>
@@ -202,6 +179,29 @@ export default function GuidesPage() {
             </ul>
           )}
         </div>
+
+        {guides.length > 0 && (
+          <div className="mt-8 p-4 bg-white rounded-lg border border-gray-200 space-y-3">
+            <h3 className="text-sm font-medium text-gray-700">인솔자 비밀번호 변경</h3>
+            <div className="flex items-center gap-3">
+              <input
+                type="text"
+                value={bulkPassword}
+                onChange={(e) => setBulkPassword(e.target.value)}
+                placeholder="새 비밀번호 (4자 이상)"
+                className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+              <button
+                onClick={handleBulkPassword}
+                disabled={bulkLoading || !bulkPassword || bulkPassword.length < 4}
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
+              >
+                {bulkLoading ? "변경 중..." : "변경"}
+              </button>
+            </div>
+            {bulkMsg && <p className={`text-sm ${bulkMsg.includes("완료") ? "text-green-600" : "text-red-600"}`}>{bulkMsg}</p>}
+          </div>
+        )}
       </div>
     </AdminLayout>
   );
