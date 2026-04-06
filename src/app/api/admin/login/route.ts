@@ -1,10 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { createAdminClient } from "@/lib/supabase";
 
 export async function POST(request: NextRequest) {
   const { password } = await request.json();
 
-  if (password !== process.env.ADMIN_PASSWORD) {
+  // DB에서 비밀번호 확인 (없으면 환경변수 사용)
+  const supabase = createAdminClient();
+  const { data: setting } = await supabase
+    .from("settings")
+    .select("value")
+    .eq("key", "admin_password")
+    .single();
+
+  const adminPassword = setting?.value || process.env.ADMIN_PASSWORD;
+
+  if (password !== adminPassword) {
     return NextResponse.json({ error: "비밀번호가 틀렸습니다." }, { status: 401 });
   }
 
