@@ -1,0 +1,291 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import MonthNav from "@/components/MonthNav";
+import CourseModal from "@/components/CourseModal";
+import { supabase } from "@/lib/supabase";
+import { formatDate, isMonday, getDaysInMonth, toDateString } from "@/lib/date-utils";
+import { getCourseColor } from "@/lib/course-utils";
+import { Course, Guide, ScheduleWithDetails } from "@/types/database";
+
+export default function GuideSchedulePage() {
+  const now = new Date();
+  const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth());
+  const [schedules, setSchedules] = useState<ScheduleWithDetails[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [currentGuide, setCurrentGuide] = useState<Guide | null>(null);
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+
+  useEffect(() => {
+    async function getUser() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { router.push("/login"); return; }
+
+      const res = await fetch("/api/guides");
+      const guides: Guide[] = await res.json();
+      const guide = guides.find(g => g.auth_user_id === user.id);
+      if (guide) setCurrentGuide(guide);
+    }
+    getUser();
+  }, [router]);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    const [schedulesRes, coursesRes] = await Promise.all([
+      fetch(`/api/schedules?year=${year}&month=${month}`),
+      fetch("/api/courses"),
+    ]);
+    setSchedules(await schedulesRes.json());
+    setCourses(await coursesRes.json());
+    setLoading(false);
+  }, [year, month]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  async function toggleAvailability(scheduleId: string, currentAvailable: boolean) {
+    if (!currentGuide) return;
+
+    await fetch("/api/availability", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        schedule_id: scheduleId,
+        guide_id: currentGuide.id,
+        available: !currentAvailable,
+      }),
+    });
+    fetchData();
+  }
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    router.push("/");
+  }
+
+  const days = getDaysInMonth(year, month);
+
+  function getScheduleForDate(date: Date): ScheduleWithDetails | undefined {
+    return schedules.find((s) => s.date === toDateString(date));
+  }
+
+  function prevMonth() {
+    if (month === 0) { setYear(year - 1); setMonth(11); }
+    else setMonth(month - 1);
+  }
+  function nextMonth() {
+    if (month === 11) { setYear(year + 1); setMonth(0); }
+    else setMonth(month + 1);
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-white border-b border-gray-200">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6">
+          <div className="flex items-center justify-between h-14">
+            <h1 className="text-base font-bold text-gray-900">
+              시티투어 스케줄 {currentGuide && <span className="text-indigo-600">({currentGuide.name})</span>}
+            </h1>
+            <button onClick={handleLogout} className="text-sm text-gray-500 hover:text-gray-700">로그아웃</button>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
+        <MonthNav year={year} month={month} onPrev={prevMonth} onNext={nextMonth} />
+
+        {loading ? (
+          <div className="text-center py-12 text-gray-500">로딩 중...</div>
+        ) : schedules.length === 0 ? (
+          <div className="text-center py-12 text-gray-500">이 달의 스케줄이 아직 없습니다.</div>
+        ) : (
+          <>
+            {/* 데스크탑 테이블 */}
+            <div className="hidden md:block overflow-x-auto mt-4">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="bg-gray-100 text-left">
+                    <th className="border border-gray-200 px-3 py-2">날짜</th>
+                    <th className="border border-gray-200 px-3 py-2">코스</th>
+                    <th className="border border-gray-200 px-3 py-2">탑승자</th>
+                    <th className="border border-gray-200 px-3 py-2">인솔확정</th>
+                    <th className="border border-gray-200 px-3 py-2">특이사항</th>
+                    <th className="border border-gray-200 px-3 py-2 text-center">참여</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {days.map((date) => {
+                    const monday = isMonday(date);
+                    const schedule = getScheduleForDate(date);
+                    const myAvail = schedule?.availability?.find(a => a.guide_id === currentGuide?.id);
+                    const isConfirmed = schedule?.confirmed_guide_id === currentGuide?.id;
+                    const total = schedule
+                      ? schedule.reservations + schedule.bank_transfer + schedule.onsite_purchase
+                      : 0;
+
+                    return (
+                      <tr
+                        key={toDateString(date)}
+                        className={
+                          monday ? "bg-gray-200 text-gray-400" :
+                          isConfirmed ? "bg-indigo-50" : "hover:bg-gray-50"
+                        }
+                      >
+                        <td className="border border-gray-200 px-3 py-2 whitespace-nowrap font-medium">
+                          {formatDate(date)}
+                        </td>
+                        {(() => {
+                          const color = schedule?.course ? getCourseColor(schedule.course.name) : { bg: "", text: "" };
+                          return (
+                            <td className={`border border-gray-200 px-3 py-2 ${monday ? "" : color.bg}`}>
+                              {monday ? (
+                                <span>휴일</span>
+                              ) : schedule?.course ? (
+                                <button
+                                  onClick={() => setSelectedCourse(schedule.course!)}
+                                  className={`font-medium hover:underline ${color.text}`}
+                                >
+                                  {schedule.course.name}
+                                </button>
+                              ) : "-"}
+                            </td>
+                          );
+                        })()}
+                        <td className="border border-gray-200 px-3 py-2">
+                          {!monday && schedule && (
+                            <span>
+                              <span className="font-bold">{total}명</span>
+                              <span className="text-xs text-gray-500 ml-1">
+                                ({schedule.reservations}/{schedule.bank_transfer}/{schedule.onsite_purchase})
+                              </span>
+                            </span>
+                          )}
+                        </td>
+                        <td className={`border border-gray-200 px-3 py-2 ${isConfirmed ? "font-bold text-indigo-700" : ""}`}>
+                          {!monday && schedule?.confirmed_guide
+                            ? schedule.confirmed_guide.name
+                            : !monday ? "-" : ""}
+                        </td>
+                        <td className="border border-gray-200 px-3 py-2 max-w-[200px] truncate" title={schedule?.notes}>
+                          {!monday && (schedule?.notes || "")}
+                        </td>
+                        <td className="border border-gray-200 px-3 py-2 text-center">
+                          {!monday && schedule && (
+                            <button
+                              onClick={() => toggleAvailability(schedule.id, myAvail?.available || false)}
+                              className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                                myAvail?.available
+                                  ? "bg-green-100 text-green-700 hover:bg-green-200"
+                                  : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                              }`}
+                            >
+                              {myAvail?.available ? "가능" : "불가"}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* 모바일 카드 뷰 */}
+            <div className="md:hidden mt-4 space-y-2">
+              {days.map((date) => {
+                const monday = isMonday(date);
+                const schedule = getScheduleForDate(date);
+                const myAvail = schedule?.availability?.find(a => a.guide_id === currentGuide?.id);
+                const isConfirmed = schedule?.confirmed_guide_id === currentGuide?.id;
+                const total = schedule
+                  ? schedule.reservations + schedule.bank_transfer + schedule.onsite_purchase
+                  : 0;
+
+                return (
+                  <details
+                    key={toDateString(date)}
+                    className={`rounded-lg border ${
+                      monday ? "bg-gray-100 border-gray-200" :
+                      isConfirmed ? "bg-indigo-50 border-indigo-200" :
+                      "bg-white border-gray-200"
+                    }`}
+                  >
+                    <summary className="px-4 py-3 cursor-pointer flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className={`font-medium ${monday ? "text-gray-400" : "text-gray-900"}`}>
+                          {formatDate(date)}
+                          {monday && " (휴일)"}
+                        </span>
+                        {isConfirmed && (
+                          <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">확정</span>
+                        )}
+                      </div>
+                      {!monday && schedule && (
+                        <button
+                          onClick={(e) => { e.preventDefault(); toggleAvailability(schedule.id, myAvail?.available || false); }}
+                          className={`rounded-full px-3 py-1 text-xs font-medium ${
+                            myAvail?.available
+                              ? "bg-green-100 text-green-700"
+                              : "bg-gray-100 text-gray-500"
+                          }`}
+                        >
+                          {myAvail?.available ? "가능" : "불가"}
+                        </button>
+                      )}
+                    </summary>
+                    {!monday && schedule && (
+                      <div className="px-4 pb-3 border-t border-gray-100 pt-3 space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">코스</span>
+                          {schedule.course ? (
+                            <button
+                              onClick={() => setSelectedCourse(schedule.course!)}
+                              className="text-indigo-600 hover:underline"
+                            >
+                              {schedule.course.name}
+                            </button>
+                          ) : <span>-</span>}
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">탑승자</span>
+                          <span>
+                            <span className="font-bold">{total}명</span>
+                            <span className="text-xs text-gray-400 ml-1">
+                              ({schedule.reservations}/{schedule.bank_transfer}/{schedule.onsite_purchase})
+                            </span>
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">인솔확정</span>
+                          <span className={isConfirmed ? "font-bold text-indigo-700" : ""}>
+                            {schedule.confirmed_guide?.name || "-"}
+                          </span>
+                        </div>
+                        {schedule.notes && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">특이사항</span>
+                            <span className="text-right max-w-[60%]">{schedule.notes}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </details>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </main>
+
+      {selectedCourse && (
+        <CourseModal
+          course={selectedCourse}
+          onClose={() => setSelectedCourse(null)}
+        />
+      )}
+    </div>
+  );
+}
