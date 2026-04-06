@@ -140,40 +140,13 @@ export default function GuidesPage() {
                       <p className="text-sm font-medium text-gray-900">{guide.name}</p>
                       <p className="text-xs text-gray-500">{guide.email}</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => { setPwGuideId(pwGuideId === guide.id ? null : guide.id); setNewPassword(""); setPwMsg(""); }}
-                        className="text-sm text-indigo-600 hover:text-indigo-800"
-                      >
-                        비밀번호
-                      </button>
-                      <button
-                        onClick={() => handleDelete(guide.id, guide.name)}
-                        className="text-sm text-red-600 hover:text-red-800"
-                      >
-                        삭제
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => handleDelete(guide.id, guide.name)}
+                      className="text-sm text-red-600 hover:text-red-800"
+                    >
+                      삭제
+                    </button>
                   </div>
-                  {pwGuideId === guide.id && (
-                    <div className="mt-2 flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        placeholder="새 비밀번호"
-                        className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                      />
-                      <button
-                        onClick={() => handleChangePassword(guide.id)}
-                        disabled={!newPassword || newPassword.length < 4}
-                        className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm text-white hover:bg-indigo-500 disabled:opacity-50"
-                      >
-                        변경
-                      </button>
-                      {pwMsg && <span className={`text-xs ${pwMsg.includes("완료") ? "text-green-600" : "text-red-600"}`}>{pwMsg}</span>}
-                    </div>
-                  )}
                 </li>
               ))}
             </ul>
