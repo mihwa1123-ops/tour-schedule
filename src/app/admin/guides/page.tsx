@@ -13,6 +13,9 @@ export default function GuidesPage() {
   const [pwGuideId, setPwGuideId] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [pwMsg, setPwMsg] = useState("");
+  const [bulkPassword, setBulkPassword] = useState("");
+  const [bulkMsg, setBulkMsg] = useState("");
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   async function fetchGuides() {
     const res = await fetch("/api/guides");
@@ -41,6 +44,25 @@ export default function GuidesPage() {
       setError(data.error || "추가에 실패했습니다.");
     }
     setLoading(false);
+  }
+
+  async function handleBulkPassword() {
+    setBulkMsg("");
+    setBulkLoading(true);
+    const res = await fetch("/api/guides/password", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ guide_ids: guides.map(g => g.id), new_password: bulkPassword }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setBulkMsg(`전체 ${data.count}명 비밀번호 변경 완료!`);
+      setBulkPassword("");
+    } else {
+      const data = await res.json();
+      setBulkMsg(data.error || "변경 실패");
+    }
+    setBulkLoading(false);
   }
 
   async function handleChangePassword(guideId: string) {
@@ -102,6 +124,29 @@ export default function GuidesPage() {
             {loading ? "추가 중..." : "추가"}
           </button>
         </form>
+
+        {guides.length > 0 && (
+          <div className="mb-8 p-4 bg-white rounded-lg border border-gray-200 space-y-3">
+            <h3 className="text-sm font-medium text-gray-700">전체 비밀번호 일괄 변경</h3>
+            <div className="flex items-center gap-3">
+              <input
+                type="text"
+                value={bulkPassword}
+                onChange={(e) => setBulkPassword(e.target.value)}
+                placeholder="새 비밀번호 (4자 이상)"
+                className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+              <button
+                onClick={handleBulkPassword}
+                disabled={bulkLoading || !bulkPassword || bulkPassword.length < 4}
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
+              >
+                {bulkLoading ? "변경 중..." : `전체 ${guides.length}명 변경`}
+              </button>
+            </div>
+            {bulkMsg && <p className={`text-sm ${bulkMsg.includes("완료") ? "text-green-600" : "text-red-600"}`}>{bulkMsg}</p>}
+          </div>
+        )}
 
         <div className="bg-white rounded-lg border border-gray-200">
           <div className="px-4 py-3 border-b border-gray-200">
