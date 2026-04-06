@@ -16,15 +16,11 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   const supabase = createAdminClient();
-  const { name, email, password } = await request.json();
-
-  if (!password || password.length < 6) {
-    return NextResponse.json({ error: "비밀번호는 6자 이상이어야 합니다." }, { status: 400 });
-  }
+  const { name, email } = await request.json();
 
   const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
     email,
-    password,
+    password: "tour26",
     email_confirm: true,
   });
 
