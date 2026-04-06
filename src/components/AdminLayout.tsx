@@ -7,6 +7,7 @@ import { useRouter, usePathname } from "next/navigation";
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const [showMenu, setShowMenu] = useState(false);
   const [showPwModal, setShowPwModal] = useState(false);
   const [currentPw, setCurrentPw] = useState("");
   const [newPw, setNewPw] = useState("");
@@ -49,28 +50,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200">
+      {/* 헤더 */}
+      <header className="sticky top-0 z-40 bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="flex items-center justify-between h-14">
-            <div className="flex items-center gap-6">
-              <h1 className="text-base font-bold text-gray-900">시티투어 관리자</h1>
-              <nav className="flex gap-1">
-                {navItems.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`rounded-lg px-3 py-1.5 text-sm transition ${
-                      pathname === item.href
-                        ? "bg-indigo-50 text-indigo-700 font-medium"
-                        : "text-gray-600 hover:bg-gray-100"
-                    }`}
-                  >
-                    {item.label}
-                  </Link>
-                ))}
-              </nav>
-            </div>
-            <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between h-12">
+            <h1 className="text-base font-bold text-gray-900">시티투어 관리자</h1>
+
+            {/* PC: 텍스트 버튼 */}
+            <div className="hidden sm:flex items-center gap-3">
               <button
                 onClick={() => { setShowPwModal(true); setPwMsg(""); }}
                 className="text-sm text-gray-500 hover:text-gray-700"
@@ -84,11 +71,67 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 로그아웃
               </button>
             </div>
+
+            {/* 모바일: 햄버거 */}
+            <div className="sm:hidden relative">
+              <button
+                onClick={() => setShowMenu(!showMenu)}
+                className="p-1 text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5" />
+                </svg>
+              </button>
+              {showMenu && (
+                <div className="absolute right-0 top-10 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                  <button
+                    onClick={() => { setShowMenu(false); setShowPwModal(true); setPwMsg(""); }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  >
+                    비밀번호 변경
+                  </button>
+                  <button
+                    onClick={() => { setShowMenu(false); handleLogout(); }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  >
+                    로그아웃
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* 탭 메뉴 - 헤더와 함께 고정 */}
+        <div className="border-t border-gray-100">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6">
+            <nav className="flex">
+              {navItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`px-4 py-2.5 text-sm font-medium border-b-2 transition ${
+                    pathname === item.href
+                      ? "border-indigo-600 text-indigo-600"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
           </div>
         </div>
       </header>
+
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">{children}</main>
 
+      {/* 햄버거 메뉴 배경 오버레이 */}
+      {showMenu && (
+        <div className="fixed inset-0 z-30" onClick={() => setShowMenu(false)} />
+      )}
+
+      {/* 비밀번호 변경 모달 */}
       {showPwModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowPwModal(false)}>
           <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl mx-4" onClick={(e) => e.stopPropagation()}>
