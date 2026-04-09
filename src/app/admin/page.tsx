@@ -154,7 +154,72 @@ export default function AdminSchedulePage() {
     count: mergedSchedules.filter((s) => s.confirmed_guide_id === g.id).length,
   }));
 
+  // 월간 합계 (예약자/계좌이체/현장구매)
+  const totals = useMemo(() => {
+    let res = 0, bank = 0, onsite = 0;
+    for (const s of mergedSchedules) {
+      res += Number(s.reservations) || 0;
+      bank += Number(s.bank_transfer) || 0;
+      onsite += Number(s.onsite_purchase) || 0;
+    }
+    return { res, bank, onsite, total: res + bank + onsite };
+  }, [mergedSchedules]);
+
   const days = getDaysInMonth(year, month);
+
+  function downloadCSV() {
+    const weekdays = ["일", "월", "화", "수", "목", "금", "토"];
+    const headers = [
+      "날짜", "요일", "코스",
+      "예약자", "계좌이체", "현장구매", "합계",
+      "인솔확정", "배차정보", "특이사항",
+    ];
+    const rows: (string | number)[][] = days.map((date) => {
+      const monday = isMonday(date);
+      const schedule = mergedSchedules.find((s) => s.date === toDateString(date));
+      const weekday = weekdays[date.getDay()];
+      if (monday) {
+        return [toDateString(date), weekday, "휴일", "", "", "", "", "", "", ""];
+      }
+      if (!schedule) {
+        return [toDateString(date), weekday, "", "", "", "", "", "", "", ""];
+      }
+      const courseName = courses.find((c) => c.id === schedule.course_id)?.name || "";
+      const confirmedName = guides.find((g) => g.id === schedule.confirmed_guide_id)?.name || "";
+      const r = Number(schedule.reservations) || 0;
+      const b = Number(schedule.bank_transfer) || 0;
+      const o = Number(schedule.onsite_purchase) || 0;
+      return [
+        toDateString(date), weekday, courseName,
+        r, b, o, r + b + o,
+        confirmedName,
+        schedule.vehicle_info || "",
+        schedule.notes || "",
+      ];
+    });
+    rows.push([
+      "합계", "", "",
+      totals.res, totals.bank, totals.onsite, totals.total,
+      "", "", "",
+    ]);
+
+    const escape = (v: string | number) => {
+      const s = String(v ?? "");
+      if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+      return s;
+    };
+    const csv = [headers, ...rows].map((row) => row.map(escape).join(",")).join("\r\n");
+    // UTF-8 BOM 붙여서 엑셀에서 한글 깨짐 방지
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `시티투어_스케줄_${year}년_${String(month + 1).padStart(2, "0")}월.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
 
   function getScheduleForDate(date: Date): ScheduleWithDetails | undefined {
     return mergedSchedules.find((s) => s.date === toDateString(date));
@@ -211,21 +276,22 @@ export default function AdminSchedulePage() {
       ) : (
         <>
           {/* 데스크탑 테이블 */}
-          <div className="hidden lg:block overflow-x-auto mt-4 pb-20">
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className="bg-gray-100 text-left">
-                  <th className="border border-gray-200 px-2 py-2 whitespace-nowrap">날짜</th>
-                  <th className="border border-gray-200 px-2 py-2">코스</th>
-                  <th className="border border-gray-200 px-2 py-2">예약자</th>
-                  <th className="border border-gray-200 px-2 py-2">계좌이체</th>
-                  <th className="border border-gray-200 px-2 py-2">현장구매</th>
+          <div className="hidden lg:block mt-4">
+            <div className="overflow-auto max-h-[calc(100vh-280px)] border border-gray-200 rounded-lg bg-white">
+            <table className="w-full text-sm border-separate border-spacing-0">
+              <thead className="sticky top-0 z-20">
+                <tr className="text-left">
+                  <th className="bg-gray-100 border-b border-r border-gray-200 px-2 py-2 whitespace-nowrap">날짜</th>
+                  <th className="bg-gray-100 border-b border-r border-gray-200 px-2 py-2">코스</th>
+                  <th className="bg-gray-100 border-b border-r border-gray-200 px-2 py-2">예약자</th>
+                  <th className="bg-gray-100 border-b border-r border-gray-200 px-2 py-2">계좌이체</th>
+                  <th className="bg-gray-100 border-b border-r border-gray-200 px-2 py-2">현장구매</th>
                   {guides.map((g) => (
-                    <th key={g.id} className="border border-gray-200 px-2 py-2 text-center">{g.name}</th>
+                    <th key={g.id} className="bg-gray-100 border-b border-r border-gray-200 px-2 py-2 text-center">{g.name}</th>
                   ))}
-                  <th className="border border-gray-200 px-2 py-2">인솔확정</th>
-                  <th className="border border-gray-200 px-2 py-2">배차정보</th>
-                  <th className="border border-gray-200 px-2 py-2">특이사항</th>
+                  <th className="bg-gray-100 border-b border-r border-gray-200 px-2 py-2">인솔확정</th>
+                  <th className="bg-gray-100 border-b border-r border-gray-200 px-2 py-2">배차정보</th>
+                  <th className="bg-gray-100 border-b border-gray-200 px-2 py-2">특이사항</th>
                 </tr>
               </thead>
               <tbody>
@@ -236,14 +302,14 @@ export default function AdminSchedulePage() {
 
                   return (
                     <tr key={toDateString(date)} className={monday ? "bg-gray-200 text-gray-400" : "hover:bg-gray-50"}>
-                      <td className="border border-gray-200 px-2 py-1.5 whitespace-nowrap font-medium">
+                      <td className="border-b border-r border-gray-200 px-2 py-1.5 whitespace-nowrap font-medium">
                         {formatDate(date)}
                       </td>
                       {(() => {
                         const color = schedule?.course ? getCourseColor(schedule.course.name) : { bg: "", text: "" };
                         const currentCourseId = schedule?.course_id || "";
                         return (
-                          <td className={`border border-gray-200 px-2 py-1.5 ${monday ? "" : color.bg}`}>
+                          <td className={`border-b border-r border-gray-200 px-2 py-1.5 ${monday ? "" : color.bg}`}>
                             {monday ? (
                               <span className="text-gray-400">휴일</span>
                             ) : schedule ? (
@@ -261,7 +327,7 @@ export default function AdminSchedulePage() {
                           </td>
                         );
                       })()}
-                      <td className="border border-gray-200 px-2 py-1.5">
+                      <td className="border-b border-r border-gray-200 px-2 py-1.5">
                         {!monday && schedule && (
                           <input
                             type="text"
@@ -274,7 +340,7 @@ export default function AdminSchedulePage() {
                           />
                         )}
                       </td>
-                      <td className="border border-gray-200 px-2 py-1.5">
+                      <td className="border-b border-r border-gray-200 px-2 py-1.5">
                         {!monday && schedule && (
                           <input
                             type="text"
@@ -287,7 +353,7 @@ export default function AdminSchedulePage() {
                           />
                         )}
                       </td>
-                      <td className="border border-gray-200 px-2 py-1.5">
+                      <td className="border-b border-r border-gray-200 px-2 py-1.5">
                         {!monday && schedule && (
                           <input
                             type="text"
@@ -303,14 +369,14 @@ export default function AdminSchedulePage() {
                       {guides.map((guide) => {
                         const avail = schedule?.availability?.find((a) => a.guide_id === guide.id);
                         return (
-                          <td key={guide.id} className={`border border-gray-200 px-2 py-1.5 text-center ${
+                          <td key={guide.id} className={`border-b border-r border-gray-200 px-2 py-1.5 text-center ${
                             avail?.available ? "bg-green-50 text-green-700" : ""
                           }`}>
                             {!monday && (avail?.available ? "O" : "-")}
                           </td>
                         );
                       })}
-                      <td className="border border-gray-200 px-2 py-1.5">
+                      <td className="border-b border-r border-gray-200 px-2 py-1.5">
                         {!monday && schedule && (
                           <select
                             value={schedule.confirmed_guide_id || ""}
@@ -326,7 +392,7 @@ export default function AdminSchedulePage() {
                           </select>
                         )}
                       </td>
-                      <td className="border border-gray-200 px-2 py-1.5 align-top w-[180px] max-w-[180px]">
+                      <td className="border-b border-r border-gray-200 px-2 py-1.5 align-top w-[180px] max-w-[180px]">
                         {!monday && schedule && (
                           <textarea
                             value={schedule.vehicle_info}
@@ -337,7 +403,7 @@ export default function AdminSchedulePage() {
                           />
                         )}
                       </td>
-                      <td className="border border-gray-200 px-2 py-1.5 align-top w-[200px] max-w-[200px]">
+                      <td className="border-b border-gray-200 px-2 py-1.5 align-top w-[200px] max-w-[200px]">
                         {!monday && schedule && (
                           <textarea
                             value={schedule.notes}
@@ -352,7 +418,38 @@ export default function AdminSchedulePage() {
                   );
                 })}
               </tbody>
+              <tfoot className="sticky bottom-0 z-20">
+                <tr className="bg-indigo-50 font-bold text-gray-900">
+                  <td className="border-t-2 border-r border-indigo-200 px-2 py-2 whitespace-nowrap bg-indigo-50" colSpan={2}>
+                    월간 합계
+                  </td>
+                  <td className="border-t-2 border-r border-indigo-200 px-2 py-2 bg-indigo-50">{totals.res}</td>
+                  <td className="border-t-2 border-r border-indigo-200 px-2 py-2 bg-indigo-50">{totals.bank}</td>
+                  <td className="border-t-2 border-r border-indigo-200 px-2 py-2 bg-indigo-50">{totals.onsite}</td>
+                  {guides.map((g) => (
+                    <td key={g.id} className="border-t-2 border-r border-indigo-200 px-2 py-2 bg-indigo-50"></td>
+                  ))}
+                  <td className="border-t-2 border-r border-indigo-200 px-2 py-2 bg-indigo-50 text-indigo-700">
+                    총 {totals.total}명
+                  </td>
+                  <td className="border-t-2 border-r border-indigo-200 px-2 py-2 bg-indigo-50"></td>
+                  <td className="border-t-2 border-indigo-200 px-2 py-2 bg-indigo-50"></td>
+                </tr>
+              </tfoot>
             </table>
+            </div>
+            {/* CSV 다운로드 버튼 */}
+            <div className="mt-3 mb-20 flex justify-end">
+              <button
+                onClick={downloadCSV}
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 inline-flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9 4.5-4.5m0 0 4.5 4.5m-4.5-4.5v12" />
+                </svg>
+                CSV 다운로드
+              </button>
+            </div>
           </div>
 
           {/* 모바일 아코디언 카드 뷰 */}
