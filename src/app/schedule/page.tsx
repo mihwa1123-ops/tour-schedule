@@ -215,6 +215,7 @@ export default function GuideSchedulePage() {
                     <th className="border border-gray-200 px-3 py-2">코스</th>
                     <th className="border border-gray-200 px-3 py-2">탑승자</th>
                     <th className="border border-gray-200 px-3 py-2">인솔확정</th>
+                    <th className="border border-gray-200 px-3 py-2">배차정보</th>
                     <th className="border border-gray-200 px-3 py-2">특이사항</th>
                     <th className="border border-gray-200 px-3 py-2 text-center">참여</th>
                   </tr>
@@ -272,7 +273,10 @@ export default function GuideSchedulePage() {
                             ? schedule.confirmed_guide.name
                             : !monday ? "-" : ""}
                         </td>
-                        <td className="border border-gray-200 px-3 py-2 max-w-[200px] truncate" title={schedule?.notes}>
+                        <td className="border border-gray-200 px-3 py-2 max-w-[200px] whitespace-pre-wrap break-words" title={schedule?.vehicle_info}>
+                          {!monday && (schedule?.vehicle_info || "")}
+                        </td>
+                        <td className="border border-gray-200 px-3 py-2 max-w-[200px] whitespace-pre-wrap break-words" title={schedule?.notes}>
                           {!monday && (schedule?.notes || "")}
                         </td>
                         <td className="border border-gray-200 px-3 py-2 text-center">
@@ -367,6 +371,12 @@ export default function GuideSchedulePage() {
                             {schedule.confirmed_guide?.name || "-"}
                           </span>
                         </div>
+                        {schedule.vehicle_info && (
+                          <div className="flex justify-between gap-3">
+                            <span className="text-gray-500 shrink-0">배차정보</span>
+                            <span className="text-right max-w-[60%] whitespace-pre-wrap break-words">{schedule.vehicle_info}</span>
+                          </div>
+                        )}
                         {schedule.notes && (
                           <div className="flex justify-between">
                             <span className="text-gray-500">특이사항</span>
