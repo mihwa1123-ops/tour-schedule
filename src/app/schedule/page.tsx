@@ -250,9 +250,12 @@ export default function GuideSchedulePage() {
                               ) : schedule?.course ? (
                                 <button
                                   onClick={() => setSelectedCourse(schedule.course!)}
-                                  className={`font-medium hover:underline ${color.text}`}
+                                  className={`inline-flex items-center gap-1 font-medium hover:underline ${color.text}`}
                                 >
                                   {schedule.course.name}
+                                  <svg className="w-3.5 h-3.5 opacity-70" fill="none" viewBox="0 0 24 24" strokeWidth="2.2" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                                  </svg>
                                 </button>
                               ) : "-"}
                             </td>
@@ -345,14 +348,17 @@ export default function GuideSchedulePage() {
                     </summary>
                     {!monday && schedule && (
                       <div className="px-4 pb-3 border-t border-gray-100 pt-3 space-y-2 text-sm">
-                        <div className="flex justify-between">
+                        <div className="flex justify-between items-center">
                           <span className="text-gray-500">코스</span>
                           {schedule.course ? (
                             <button
                               onClick={() => setSelectedCourse(schedule.course!)}
-                              className="text-indigo-600 hover:underline"
+                              className="inline-flex items-center gap-1 rounded-md border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-indigo-700 hover:bg-indigo-100 active:bg-indigo-200"
                             >
-                              {schedule.course.name}
+                              <span className="font-medium">{schedule.course.name}</span>
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth="2.2" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                              </svg>
                             </button>
                           ) : <span>-</span>}
                         </div>
