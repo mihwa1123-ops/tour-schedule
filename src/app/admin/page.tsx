@@ -450,17 +450,23 @@ export default function AdminSchedulePage() {
                       </div>
                       <label className="text-xs text-gray-500">
                         배차정보
-                        <input type="text" value={schedule.vehicle_info}
+                        <textarea
+                          value={schedule.vehicle_info}
                           onChange={(e) => stageChange(schedule.id, "vehicle_info", e.target.value)}
-                          className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
-                          placeholder="차량번호/기사/연락처" />
+                          className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm resize-none break-words whitespace-pre-wrap"
+                          placeholder="차량번호/기사/연락처"
+                          rows={Math.max(1, Math.ceil((schedule.vehicle_info?.length || 0) / 25))}
+                        />
                       </label>
                       <label className="text-xs text-gray-500">
                         특이사항
-                        <input type="text" value={schedule.notes}
+                        <textarea
+                          value={schedule.notes}
                           onChange={(e) => stageChange(schedule.id, "notes", e.target.value)}
-                          className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
-                          placeholder="특이사항" />
+                          className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm resize-none break-words whitespace-pre-wrap"
+                          placeholder="특이사항"
+                          rows={Math.max(1, Math.ceil((schedule.notes?.length || 0) / 25))}
+                        />
                       </label>
                     </div>
                   )}

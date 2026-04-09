@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import MonthNav from "@/components/MonthNav";
 import CourseModal from "@/components/CourseModal";
@@ -18,7 +18,13 @@ export default function GuideSchedulePage() {
   const [currentGuide, setCurrentGuide] = useState<Guide | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  // 로컬 편집: schedule_id → available (저장 버튼 누르기 전까지만 유지)
+  const [pendingAvailability, setPendingAvailability] = useState<Record<string, boolean>>({});
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
   const router = useRouter();
+
+  const hasChanges = Object.keys(pendingAvailability).length > 0;
 
   useEffect(() => {
     async function getUser() {
@@ -46,22 +52,118 @@ export default function GuideSchedulePage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  async function toggleAvailability(scheduleId: string, currentAvailable: boolean) {
-    if (!currentGuide) return;
+  // 브라우저 닫기/새로고침 경고
+  useEffect(() => {
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      if (hasChanges) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasChanges]);
 
-    await fetch("/api/availability", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        schedule_id: scheduleId,
-        guide_id: currentGuide.id,
-        available: !currentAvailable,
-      }),
+  // 키보드(입력 포커스) 감지
+  useEffect(() => {
+    function handleFocusIn(e: FocusEvent) {
+      const t = e.target as HTMLElement | null;
+      if (!t) return;
+      const tag = t.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") {
+        setKeyboardOpen(true);
+      }
+    }
+    function handleFocusOut() {
+      setTimeout(() => {
+        const active = document.activeElement as HTMLElement | null;
+        if (
+          !active ||
+          (active.tagName !== "INPUT" &&
+            active.tagName !== "TEXTAREA" &&
+            active.tagName !== "SELECT")
+        ) {
+          setKeyboardOpen(false);
+        }
+      }, 100);
+    }
+    document.addEventListener("focusin", handleFocusIn);
+    document.addEventListener("focusout", handleFocusOut);
+    return () => {
+      document.removeEventListener("focusin", handleFocusIn);
+      document.removeEventListener("focusout", handleFocusOut);
+    };
+  }, []);
+
+  // merged 스케줄: pendingAvailability 를 반영
+  const mergedSchedules = useMemo(() => {
+    if (!currentGuide) return schedules;
+    return schedules.map((s) => {
+      if (!(s.id in pendingAvailability)) return s;
+      const newAvailable = pendingAvailability[s.id];
+      const existing = s.availability || [];
+      const hasRecord = existing.some((a) => a.guide_id === currentGuide.id);
+      const updated = hasRecord
+        ? existing.map((a) =>
+            a.guide_id === currentGuide.id ? { ...a, available: newAvailable } : a
+          )
+        : [
+            ...existing,
+            {
+              id: `pending-${s.id}`,
+              schedule_id: s.id,
+              guide_id: currentGuide.id,
+              available: newAvailable,
+              guide: currentGuide,
+            },
+          ];
+      return { ...s, availability: updated };
     });
-    fetchData();
+  }, [schedules, pendingAvailability, currentGuide]);
+
+  function stageAvailability(scheduleId: string, newAvailable: boolean) {
+    setPendingAvailability((prev) => {
+      // 이미 서버 상태와 같아지면 해당 entry 제거
+      const orig = schedules
+        .find((s) => s.id === scheduleId)
+        ?.availability?.find((a) => a.guide_id === currentGuide?.id)?.available || false;
+      const next = { ...prev };
+      if (newAvailable === orig) {
+        delete next[scheduleId];
+      } else {
+        next[scheduleId] = newAvailable;
+      }
+      return next;
+    });
+  }
+
+  async function saveAll() {
+    if (!currentGuide) return;
+    setSaving(true);
+    try {
+      const entries = Object.entries(pendingAvailability);
+      for (const [scheduleId, available] of entries) {
+        await fetch("/api/availability", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            schedule_id: scheduleId,
+            guide_id: currentGuide.id,
+            available,
+          }),
+        });
+      }
+      setPendingAvailability({});
+      await fetchData();
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleLogout() {
+    if (hasChanges && !confirm("저장하지 않은 변경사항이 있습니다. 로그아웃 하시겠습니까?")) {
+      return;
+    }
     await supabase.auth.signOut();
     router.push("/");
   }
@@ -69,16 +171,28 @@ export default function GuideSchedulePage() {
   const days = getDaysInMonth(year, month);
 
   function getScheduleForDate(date: Date): ScheduleWithDetails | undefined {
-    return schedules.find((s) => s.date === toDateString(date));
+    return mergedSchedules.find((s) => s.date === toDateString(date));
+  }
+
+  function tryChangeMonth(action: () => void) {
+    if (hasChanges) {
+      if (!confirm("저장하지 않은 변경사항이 있습니다. 이동하시겠습니까?")) return;
+      setPendingAvailability({});
+    }
+    action();
   }
 
   function prevMonth() {
-    if (month === 0) { setYear(year - 1); setMonth(11); }
-    else setMonth(month - 1);
+    tryChangeMonth(() => {
+      if (month === 0) { setYear(year - 1); setMonth(11); }
+      else setMonth(month - 1);
+    });
   }
   function nextMonth() {
-    if (month === 11) { setYear(year + 1); setMonth(0); }
-    else setMonth(month + 1);
+    tryChangeMonth(() => {
+      if (month === 11) { setYear(year + 1); setMonth(0); }
+      else setMonth(month + 1);
+    });
   }
 
   return (
@@ -94,7 +208,7 @@ export default function GuideSchedulePage() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 pb-24">
         <MonthNav year={year} month={month} onPrev={prevMonth} onNext={nextMonth} />
 
         {loading ? (
@@ -175,7 +289,7 @@ export default function GuideSchedulePage() {
                         <td className="border border-gray-200 px-3 py-2 text-center">
                           {!monday && schedule && (
                             <button
-                              onClick={() => toggleAvailability(schedule.id, myAvail?.available || false)}
+                              onClick={() => stageAvailability(schedule.id, !(myAvail?.available || false))}
                               className={`rounded-full px-3 py-1 text-xs font-medium transition ${
                                 myAvail?.available
                                   ? "bg-green-100 text-green-700 hover:bg-green-200"
@@ -225,7 +339,7 @@ export default function GuideSchedulePage() {
                       </div>
                       {!monday && schedule && (
                         <button
-                          onClick={(e) => { e.preventDefault(); toggleAvailability(schedule.id, myAvail?.available || false); }}
+                          onClick={(e) => { e.preventDefault(); stageAvailability(schedule.id, !(myAvail?.available || false)); }}
                           className={`rounded-full px-3 py-1 text-xs font-medium ${
                             myAvail?.available
                               ? "bg-green-100 text-green-700"
@@ -286,6 +400,24 @@ export default function GuideSchedulePage() {
           onClose={() => setSelectedCourse(null)}
         />
       )}
+
+      {/* 저장 버튼 - 후터 고정 (키보드 올라오면 숨김) */}
+      <div
+        className={`${keyboardOpen ? "hidden" : "fixed"} bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 px-4 py-3 shadow-lg`}
+      >
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
+          <span className="text-sm text-gray-500">
+            {hasChanges ? `${Object.keys(pendingAvailability).length}개 변경사항` : "변경사항 없음"}
+          </span>
+          <button
+            onClick={saveAll}
+            disabled={!hasChanges || saving}
+            className="rounded-lg bg-indigo-600 px-6 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:bg-gray-300 disabled:cursor-not-allowed"
+          >
+            {saving ? "저장 중..." : "저장"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
