@@ -4,17 +4,18 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import MonthNav from "@/components/MonthNav";
 import CourseModal from "@/components/CourseModal";
+import GuideLayout from "@/components/GuideLayout";
 import { supabase } from "@/lib/supabase";
 import { formatDate, isMonday, getDaysInMonth, toDateString } from "@/lib/date-utils";
 import { getCourseColor } from "@/lib/course-utils";
 import { Course, Guide, ScheduleWithDetails } from "@/types/database";
+// Course 는 CourseModal prop 타입용으로만 사용
 
 export default function GuideSchedulePage() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
   const [schedules, setSchedules] = useState<ScheduleWithDetails[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
   const [currentGuide, setCurrentGuide] = useState<Guide | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,12 +42,8 @@ export default function GuideSchedulePage() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const [schedulesRes, coursesRes] = await Promise.all([
-      fetch(`/api/schedules?year=${year}&month=${month}`),
-      fetch("/api/courses"),
-    ]);
+    const schedulesRes = await fetch(`/api/schedules?year=${year}&month=${month}`);
     setSchedules(await schedulesRes.json());
-    setCourses(await coursesRes.json());
     setLoading(false);
   }, [year, month]);
 
@@ -160,13 +157,17 @@ export default function GuideSchedulePage() {
     }
   }
 
-  async function handleLogout() {
-    if (hasChanges && !confirm("저장하지 않은 변경사항이 있습니다. 로그아웃 하시겠습니까?")) {
-      return;
+  // hasChanges 를 window 에 노출 (GuideLayout 의 탭/로그아웃 이 확인)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      (window as unknown as { __hasUnsavedChanges?: boolean }).__hasUnsavedChanges = hasChanges;
     }
-    await supabase.auth.signOut();
-    router.push("/");
-  }
+    return () => {
+      if (typeof window !== "undefined") {
+        (window as unknown as { __hasUnsavedChanges?: boolean }).__hasUnsavedChanges = false;
+      }
+    };
+  }, [hasChanges]);
 
   const days = getDaysInMonth(year, month);
 
@@ -196,20 +197,8 @@ export default function GuideSchedulePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6">
-          <div className="flex items-center justify-between h-14">
-            <h1 className="text-base font-bold text-gray-900">
-              시티투어 스케줄 {currentGuide && <span className="text-indigo-600">({currentGuide.name})</span>}
-            </h1>
-            <button onClick={handleLogout} className="text-sm text-gray-500 hover:text-gray-700">로그아웃</button>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 pb-24">
-        <MonthNav year={year} month={month} onPrev={prevMonth} onNext={nextMonth} />
+    <GuideLayout guideName={currentGuide?.name}>
+      <MonthNav year={year} month={month} onPrev={prevMonth} onNext={nextMonth} />
 
         {loading ? (
           <div className="text-center py-12 text-gray-500">로딩 중...</div>
@@ -392,7 +381,6 @@ export default function GuideSchedulePage() {
             </div>
           </>
         )}
-      </main>
 
       {selectedCourse && (
         <CourseModal
@@ -418,6 +406,6 @@ export default function GuideSchedulePage() {
           </button>
         </div>
       </div>
-    </div>
+    </GuideLayout>
   );
 }

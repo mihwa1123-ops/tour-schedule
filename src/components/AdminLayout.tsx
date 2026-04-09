@@ -58,6 +58,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { href: "/admin", label: "스케줄" },
     { href: "/admin/guides", label: "인솔자 관리" },
     { href: "/admin/courses", label: "코스 관리" },
+    { href: "/admin/notices", label: "공지사항" },
   ];
 
   return (

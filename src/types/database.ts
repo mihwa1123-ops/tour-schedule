@@ -46,3 +46,11 @@ export interface GuideMonthlyCount {
   guide_name: string;
   count: number;
 }
+
+export interface Notice {
+  id: string;
+  title: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+}
