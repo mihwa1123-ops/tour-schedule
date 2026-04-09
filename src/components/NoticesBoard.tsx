@@ -33,26 +33,43 @@ export default function NoticesBoard({ readOnly = false }: { readOnly?: boolean 
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
 
-  async function fetchInitial() {
-    setLoading(true);
-    const res = await fetch(`/api/notices?limit=${INITIAL_LIMIT}&offset=0`);
-    const data = await res.json();
-    setItems(data.items || []);
-    setTotal(data.total || 0);
-    setLoading(false);
-  }
-
   useEffect(() => {
+    async function fetchInitial() {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/notices?limit=${INITIAL_LIMIT}&offset=0`);
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          alert(data.error || "공지사항을 불러오지 못했습니다.");
+          setItems([]);
+          setTotal(0);
+        } else {
+          const data = await res.json();
+          setItems(data.items || []);
+          setTotal(data.total || 0);
+        }
+      } finally {
+        setLoading(false);
+      }
+    }
     fetchInitial();
   }, []);
 
   async function loadMore() {
     setLoadingMore(true);
-    const res = await fetch(`/api/notices?limit=${MORE_LIMIT}&offset=${items.length}`);
-    const data = await res.json();
-    setItems((prev) => [...prev, ...(data.items || [])]);
-    setTotal(data.total || 0);
-    setLoadingMore(false);
+    try {
+      const res = await fetch(`/api/notices?limit=${MORE_LIMIT}&offset=${items.length}`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "더 불러오지 못했습니다.");
+        return;
+      }
+      const data = await res.json();
+      setItems((prev) => [...prev, ...(data.items || [])]);
+      setTotal(data.total || 0);
+    } finally {
+      setLoadingMore(false);
+    }
   }
 
   async function handleCreate() {
@@ -61,21 +78,27 @@ export default function NoticesBoard({ readOnly = false }: { readOnly?: boolean 
       return;
     }
     setSaving(true);
-    const res = await fetch("/api/notices", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: newTitle, content: newContent }),
-    });
-    setSaving(false);
-    if (!res.ok) {
-      const data = await res.json();
-      alert(data.error || "등록에 실패했습니다.");
-      return;
+    try {
+      const res = await fetch("/api/notices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: newTitle, content: newContent }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "등록에 실패했습니다.");
+        return;
+      }
+      const created: Notice = await res.json();
+      // 낙관적 업데이트: 새 글을 맨 위에 추가
+      setItems((prev) => [created, ...prev]);
+      setTotal((t) => t + 1);
+      setNewTitle("");
+      setNewContent("");
+      setShowWrite(false);
+    } finally {
+      setSaving(false);
     }
-    setNewTitle("");
-    setNewContent("");
-    setShowWrite(false);
-    await fetchInitial();
   }
 
   function startEdit(n: Notice) {
@@ -96,19 +119,24 @@ export default function NoticesBoard({ readOnly = false }: { readOnly?: boolean 
       return;
     }
     setSaving(true);
-    const res = await fetch("/api/notices", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, title: editTitle, content: editContent }),
-    });
-    setSaving(false);
-    if (!res.ok) {
-      const data = await res.json();
-      alert(data.error || "수정에 실패했습니다.");
-      return;
+    try {
+      const res = await fetch("/api/notices", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, title: editTitle, content: editContent }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "수정에 실패했습니다.");
+        return;
+      }
+      const updated: Notice = await res.json();
+      // 수정된 항목을 맨 위로 이동 (updated_at 기준 정렬이므로 동일 동작)
+      setItems((prev) => [updated, ...prev.filter((n) => n.id !== id)]);
+      cancelEdit();
+    } finally {
+      setSaving(false);
     }
-    cancelEdit();
-    await fetchInitial();
   }
 
   async function handleDelete(id: string) {
@@ -128,10 +156,11 @@ export default function NoticesBoard({ readOnly = false }: { readOnly?: boolean 
     <div>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-bold text-gray-900">공지사항</h2>
-        {!readOnly && !showWrite && (
+        {!readOnly && (
           <button
             onClick={() => setShowWrite(true)}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
+            disabled={showWrite}
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:bg-indigo-300 disabled:cursor-not-allowed"
           >
             글쓰기
           </button>
@@ -184,7 +213,6 @@ export default function NoticesBoard({ readOnly = false }: { readOnly?: boolean 
         <div className="space-y-3">
           {items.map((n) => {
             const isEdited = n.updated_at && n.created_at && n.updated_at !== n.created_at;
-            const displayDate = n.updated_at || n.created_at;
             const isEditing = editingId === n.id;
 
             return (
@@ -226,35 +254,41 @@ export default function NoticesBoard({ readOnly = false }: { readOnly?: boolean 
                   </div>
                 ) : (
                   <>
-                    <div className="flex items-start justify-between gap-3 mb-2">
-                      <h3 className="text-base font-bold text-gray-900 break-words flex-1">
-                        {n.title}
-                      </h3>
-                      {!readOnly && (
-                        <div className="flex gap-2 shrink-0">
-                          <button
-                            onClick={() => startEdit(n)}
-                            className="text-xs text-gray-500 hover:text-indigo-600"
-                          >
-                            수정
-                          </button>
-                          <button
-                            onClick={() => handleDelete(n.id)}
-                            className="text-xs text-gray-500 hover:text-red-600"
-                          >
-                            삭제
-                          </button>
-                        </div>
+                    {/* 등록 시간 (상단) */}
+                    <div className="text-xs text-gray-500 mb-1">
+                      등록 {formatDateTime(n.created_at)}
+                      {isEdited && (
+                        <span className="ml-2 text-gray-400">
+                          · 수정 {formatDateTime(n.updated_at)}
+                        </span>
                       )}
                     </div>
-                    <div className="text-xs text-gray-500 mb-2">
-                      {formatDateTime(displayDate)}
-                      {isEdited && <span className="ml-1 text-gray-400">(수정됨)</span>}
-                    </div>
+                    {/* 제목 */}
+                    <h3 className="text-base font-bold text-gray-900 break-words mb-2">
+                      {n.title}
+                    </h3>
+                    {/* 내용 */}
                     {n.content && (
                       <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">
                         {n.content}
                       </p>
+                    )}
+                    {/* 수정/삭제 버튼 (카드 내부 하단) */}
+                    {!readOnly && (
+                      <div className="flex gap-2 justify-end mt-3 pt-3 border-t border-gray-100">
+                        <button
+                          onClick={() => startEdit(n)}
+                          className="rounded-lg border border-gray-300 bg-white px-3 py-1 text-xs text-gray-700 hover:bg-gray-100"
+                        >
+                          수정
+                        </button>
+                        <button
+                          onClick={() => handleDelete(n.id)}
+                          className="rounded-lg border border-red-200 bg-white px-3 py-1 text-xs text-red-600 hover:bg-red-50"
+                        >
+                          삭제
+                        </button>
+                      </div>
                     )}
                   </>
                 )}
