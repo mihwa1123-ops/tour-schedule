@@ -17,16 +17,23 @@ export default function GuideLoginPage() {
     setError("");
     setLoading(true);
 
-    const { error: authError } = await supabase.auth.signInWithPassword({
-      email,
+    const { data, error: authError } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
       password,
     });
 
     if (authError) {
-      setError("이메일 또는 비밀번호가 올바르지 않습니다.");
-    } else {
-      router.push("/schedule");
+      // 진단용: Supabase 실제 에러 메시지 표시
+      setError(`로그인 실패: ${authError.message}`);
+      setLoading(false);
+      return;
     }
+    if (!data.session) {
+      setError("세션 생성 실패. 다시 시도해주세요.");
+      setLoading(false);
+      return;
+    }
+    router.push("/schedule");
     setLoading(false);
   }
 
