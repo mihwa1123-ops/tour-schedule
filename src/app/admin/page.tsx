@@ -30,6 +30,39 @@ export default function AdminSchedulePage() {
   const [saving, setSaving] = useState(false);
   const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
   const [pendingChanges, setPendingChanges] = useState<Record<string, PendingChange>>({});
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+
+  // 키보드(입력 포커스) 감지 — 키보드 올라오면 저장 버튼 숨김
+  useEffect(() => {
+    function handleFocusIn(e: FocusEvent) {
+      const t = e.target as HTMLElement | null;
+      if (!t) return;
+      const tag = t.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") {
+        setKeyboardOpen(true);
+      }
+    }
+    function handleFocusOut() {
+      // focus 가 다른 input 으로 옮겨지는 경우를 고려해 살짝 지연
+      setTimeout(() => {
+        const active = document.activeElement as HTMLElement | null;
+        if (
+          !active ||
+          (active.tagName !== "INPUT" &&
+            active.tagName !== "TEXTAREA" &&
+            active.tagName !== "SELECT")
+        ) {
+          setKeyboardOpen(false);
+        }
+      }, 100);
+    }
+    document.addEventListener("focusin", handleFocusIn);
+    document.addEventListener("focusout", handleFocusOut);
+    return () => {
+      document.removeEventListener("focusin", handleFocusIn);
+      document.removeEventListener("focusout", handleFocusOut);
+    };
+  }, []);
 
   const hasChanges = Object.keys(pendingChanges).length > 0;
 
@@ -232,10 +265,12 @@ export default function AdminSchedulePage() {
                       <td className="border border-gray-200 px-2 py-1.5">
                         {!monday && schedule && (
                           <input
-                            type="number"
-                            min="0"
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
                             value={schedule.reservations}
-                            onChange={(e) => stageChange(schedule.id, "reservations", parseInt(e.target.value) || 0)}
+                            onFocus={(e) => e.currentTarget.select()}
+                            onChange={(e) => stageChange(schedule.id, "reservations", parseInt(e.target.value.replace(/[^0-9]/g, "")) || 0)}
                             className="w-14 bg-transparent text-sm border-0 p-0 focus:ring-0"
                           />
                         )}
@@ -243,10 +278,12 @@ export default function AdminSchedulePage() {
                       <td className="border border-gray-200 px-2 py-1.5">
                         {!monday && schedule && (
                           <input
-                            type="number"
-                            min="0"
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
                             value={schedule.bank_transfer}
-                            onChange={(e) => stageChange(schedule.id, "bank_transfer", parseInt(e.target.value) || 0)}
+                            onFocus={(e) => e.currentTarget.select()}
+                            onChange={(e) => stageChange(schedule.id, "bank_transfer", parseInt(e.target.value.replace(/[^0-9]/g, "")) || 0)}
                             className="w-14 bg-transparent text-sm border-0 p-0 focus:ring-0"
                           />
                         )}
@@ -254,10 +291,12 @@ export default function AdminSchedulePage() {
                       <td className="border border-gray-200 px-2 py-1.5">
                         {!monday && schedule && (
                           <input
-                            type="number"
-                            min="0"
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
                             value={schedule.onsite_purchase}
-                            onChange={(e) => stageChange(schedule.id, "onsite_purchase", parseInt(e.target.value) || 0)}
+                            onFocus={(e) => e.currentTarget.select()}
+                            onChange={(e) => stageChange(schedule.id, "onsite_purchase", parseInt(e.target.value.replace(/[^0-9]/g, "")) || 0)}
                             className="w-14 bg-transparent text-sm border-0 p-0 focus:ring-0"
                           />
                         )}
@@ -389,21 +428,36 @@ export default function AdminSchedulePage() {
                       <div className="grid grid-cols-3 gap-3">
                         <label className="text-xs text-gray-500">
                           예약자
-                          <input type="number" min="0" value={schedule.reservations}
-                            onChange={(e) => stageChange(schedule.id, "reservations", parseInt(e.target.value) || 0)}
-                            className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm" />
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            value={schedule.reservations}
+                            onFocus={(e) => e.currentTarget.select()}
+                            onChange={(e) => stageChange(schedule.id, "reservations", parseInt(e.target.value.replace(/[^0-9]/g, "")) || 0)}
+                            className="mt-1 w-full min-w-0 rounded border border-gray-300 px-2 py-1.5 text-sm" />
                         </label>
                         <label className="text-xs text-gray-500">
                           계좌이체
-                          <input type="number" min="0" value={schedule.bank_transfer}
-                            onChange={(e) => stageChange(schedule.id, "bank_transfer", parseInt(e.target.value) || 0)}
-                            className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm" />
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            value={schedule.bank_transfer}
+                            onFocus={(e) => e.currentTarget.select()}
+                            onChange={(e) => stageChange(schedule.id, "bank_transfer", parseInt(e.target.value.replace(/[^0-9]/g, "")) || 0)}
+                            className="mt-1 w-full min-w-0 rounded border border-gray-300 px-2 py-1.5 text-sm" />
                         </label>
                         <label className="text-xs text-gray-500">
                           현장구매
-                          <input type="number" min="0" value={schedule.onsite_purchase}
-                            onChange={(e) => stageChange(schedule.id, "onsite_purchase", parseInt(e.target.value) || 0)}
-                            className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm" />
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            value={schedule.onsite_purchase}
+                            onFocus={(e) => e.currentTarget.select()}
+                            onChange={(e) => stageChange(schedule.id, "onsite_purchase", parseInt(e.target.value.replace(/[^0-9]/g, "")) || 0)}
+                            className="mt-1 w-full min-w-0 rounded border border-gray-300 px-2 py-1.5 text-sm" />
                         </label>
                       </div>
                       <div className="text-xs text-gray-500">
@@ -434,8 +488,8 @@ export default function AdminSchedulePage() {
         </>
       )}
 
-      {/* 저장 버튼 - 후터 고정 */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 px-4 py-3 shadow-lg">
+      {/* 저장 버튼 - 후터 고정 (키보드 올라오면 숨김) */}
+      <div className={`${keyboardOpen ? "hidden" : "fixed"} bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 px-4 py-3 shadow-lg`}>
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <span className="text-sm text-gray-500">
             {hasChanges ? `${Object.keys(pendingChanges).length}개 변경사항` : "변경사항 없음"}
