@@ -9,8 +9,16 @@ export interface Guide {
 export interface Course {
   id: string;
   name: string;
+  /** 전체 코스 설명 */
   description: string;
-  image_url: string;
+  /** 투어 장소 */
+  tour_location: string;
+  /** 장소 설명 */
+  location_description: string;
+  /** 승하차 장소 */
+  boarding_location: string;
+  /** 도슨트 인계 */
+  docent_handover: string;
   link_url: string;
   created_at: string;
 }

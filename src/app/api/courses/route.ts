@@ -16,12 +16,28 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   const supabase = createAdminClient();
-  const { id, description, image_url, link_url } = await request.json();
+  const body = await request.json();
+  const {
+    id,
+    description,
+    tour_location,
+    location_description,
+    boarding_location,
+    docent_handover,
+    link_url,
+  } = body;
 
-  const updates: Record<string, string | undefined> = {};
-  if (description !== undefined) updates.description = description;
-  if (image_url !== undefined) updates.image_url = image_url;
-  if (link_url !== undefined) updates.link_url = link_url;
+  if (!id) {
+    return NextResponse.json({ error: "id 가 필요합니다." }, { status: 400 });
+  }
+
+  const updates: Record<string, string> = {};
+  if (description !== undefined) updates.description = description ?? "";
+  if (tour_location !== undefined) updates.tour_location = tour_location ?? "";
+  if (location_description !== undefined) updates.location_description = location_description ?? "";
+  if (boarding_location !== undefined) updates.boarding_location = boarding_location ?? "";
+  if (docent_handover !== undefined) updates.docent_handover = docent_handover ?? "";
+  if (link_url !== undefined) updates.link_url = link_url ?? "";
 
   const { data, error } = await supabase
     .from("courses")

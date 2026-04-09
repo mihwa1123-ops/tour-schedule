@@ -41,6 +41,13 @@ export default function GuideCoursesPage() {
         <div className="space-y-4">
           {courses.map((course) => {
             const color = getCourseColor(course.name);
+            const hasAnyContent =
+              course.description ||
+              course.tour_location ||
+              course.location_description ||
+              course.boarding_location ||
+              course.docent_handover;
+
             return (
               <div
                 key={course.id}
@@ -49,22 +56,15 @@ export default function GuideCoursesPage() {
                 <div className={`px-4 py-3 ${color.bg}`}>
                   <h3 className={`text-base font-bold ${color.text}`}>{course.name}</h3>
                 </div>
-                <div className="p-4 space-y-3">
-                  {course.description ? (
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">
-                      {course.description}
-                    </p>
-                  ) : (
+                <div className="p-4 space-y-4">
+                  {!hasAnyContent && (
                     <p className="text-sm text-gray-400">설명이 없습니다.</p>
                   )}
-                  {course.image_url && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={course.image_url}
-                      alt={course.name}
-                      className="rounded-lg w-full max-h-64 object-cover"
-                    />
-                  )}
+                  <ReadField label="전체 코스" value={course.description} />
+                  <ReadField label="투어 장소" value={course.tour_location} />
+                  <ReadField label="장소 설명" value={course.location_description} />
+                  <ReadField label="승하차 장소" value={course.boarding_location} />
+                  <ReadField label="도슨트 인계" value={course.docent_handover} />
                   {course.link_url && (
                     <a
                       href={course.link_url}
@@ -82,5 +82,15 @@ export default function GuideCoursesPage() {
         </div>
       )}
     </GuideLayout>
+  );
+}
+
+function ReadField({ label, value }: { label: string; value?: string }) {
+  if (!value) return null;
+  return (
+    <div>
+      <div className="text-xs font-bold text-gray-500 mb-1">{label}</div>
+      <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">{value}</p>
+    </div>
   );
 }
