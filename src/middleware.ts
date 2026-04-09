@@ -11,18 +11,13 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // 인솔자 페이지 보호 - Supabase Auth 쿠키 확인
-  if (pathname.startsWith("/schedule")) {
-    const supabaseAuth = request.cookies.get("sb-access-token") ||
-      request.cookies.getAll().find(c => c.name.includes("auth-token"));
-    if (!supabaseAuth) {
-      return NextResponse.redirect(new URL("/login", request.url));
-    }
-  }
+  // 인솔자 페이지(/schedule) 는 클라이언트 사이드에서 localStorage 기반
+  // Supabase 세션으로 보호하기 때문에 미들웨어에서는 체크하지 않는다.
+  // (@supabase/supabase-js 의 기본 스토리지는 localStorage 이므로 쿠키가 없다)
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/schedule/:path*"],
+  matcher: ["/admin/:path*"],
 };

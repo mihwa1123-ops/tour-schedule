@@ -28,7 +28,6 @@ export default function AdminSchedulePage() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
   const [pendingChanges, setPendingChanges] = useState<Record<string, PendingChange>>({});
   const [keyboardOpen, setKeyboardOpen] = useState(false);
 
@@ -327,39 +326,23 @@ export default function AdminSchedulePage() {
                           </select>
                         )}
                       </td>
-                      <td className="border border-gray-200 px-2 py-1.5">
+                      <td className="border border-gray-200 px-2 py-1.5 align-top w-[180px] max-w-[180px]">
                         {!monday && schedule && (
-                          editingVehicleId === schedule.id ? (
-                            <input
-                              type="text"
-                              autoFocus
-                              value={schedule.vehicle_info}
-                              onChange={(e) => stageChange(schedule.id, "vehicle_info", e.target.value)}
-                              onBlur={() => setEditingVehicleId(null)}
-                              className="w-full bg-transparent text-sm border-0 p-0 focus:ring-0"
-                              placeholder="번호/기사/연락처"
-                            />
-                          ) : (
-                            <div
-                              className="text-sm cursor-pointer min-h-[1.5em]"
-                              onClick={() => setEditingVehicleId(schedule.id)}
-                            >
-                              {schedule.vehicle_info
-                                ? schedule.vehicle_info.split("/").map((part, i, arr) => (
-                                    <span key={i}>{part.trim()}{i < arr.length - 1 && <br />}</span>
-                                  ))
-                                : <span className="text-gray-400">번호/기사/연락처</span>
-                              }
-                            </div>
-                          )
+                          <textarea
+                            value={schedule.vehicle_info}
+                            onChange={(e) => stageChange(schedule.id, "vehicle_info", e.target.value)}
+                            className="w-full bg-transparent text-sm border-0 p-0 focus:ring-0 resize-none break-words whitespace-pre-wrap"
+                            placeholder="번호/기사/연락처"
+                            rows={Math.max(1, Math.ceil((schedule.vehicle_info?.length || 0) / 14))}
+                          />
                         )}
                       </td>
-                      <td className="border border-gray-200 px-2 py-1.5">
+                      <td className="border border-gray-200 px-2 py-1.5 align-top w-[200px] max-w-[200px]">
                         {!monday && schedule && (
                           <textarea
                             value={schedule.notes}
                             onChange={(e) => stageChange(schedule.id, "notes", e.target.value)}
-                            className="w-full bg-transparent text-sm border-0 p-0 focus:ring-0 resize-none min-w-[150px]"
+                            className="w-full bg-transparent text-sm border-0 p-0 focus:ring-0 resize-none break-words whitespace-pre-wrap"
                             placeholder="특이사항"
                             rows={Math.max(1, Math.ceil((schedule.notes?.length || 0) / 15))}
                           />
