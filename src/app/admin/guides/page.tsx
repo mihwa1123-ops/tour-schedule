@@ -86,7 +86,12 @@ export default function GuidesPage() {
     if (!confirm(`${guideName} 인솔자를 삭제하시겠습니까?`)) return;
 
     const res = await fetch(`/api/guides?id=${id}`, { method: "DELETE" });
-    if (res.ok) fetchGuides();
+    if (res.ok) {
+      fetchGuides();
+    } else {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "삭제에 실패했습니다.");
+    }
   }
 
   return (

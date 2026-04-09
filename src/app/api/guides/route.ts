@@ -59,14 +59,26 @@ export async function DELETE(request: NextRequest) {
     .eq("id", id)
     .single();
 
-  if (guide?.auth_user_id) {
-    await supabase.auth.admin.deleteUser(guide.auth_user_id);
-  }
+  // 관련 availability 먼저 삭제
+  await supabase.from("guide_availability").delete().eq("guide_id", id);
+
+  // schedules에서 confirmed_guide_id가 이 인솔자인 경우 null로 변경
+  await supabase
+    .from("schedules")
+    .update({ confirmed_guide_id: null })
+    .eq("confirmed_guide_id", id);
 
   const { error } = await supabase.from("guides").delete().eq("id", id);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  if (guide?.auth_user_id) {
+    const { error: authErr } = await supabase.auth.admin.deleteUser(guide.auth_user_id);
+    if (authErr) {
+      console.error("Auth user delete failed:", authErr);
+    }
   }
 
   return NextResponse.json({ success: true });

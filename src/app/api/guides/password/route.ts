@@ -14,7 +14,7 @@ export async function PUT(request: NextRequest) {
 
   const { data: guides } = await supabase
     .from("guides")
-    .select("id, auth_user_id")
+    .select("id, email, auth_user_id")
     .in("id", ids);
 
   if (!guides || guides.length === 0) {
@@ -23,11 +23,29 @@ export async function PUT(request: NextRequest) {
 
   const errors: string[] = [];
   for (const guide of guides) {
-    if (!guide.auth_user_id) continue;
-    const { error } = await supabase.auth.admin.updateUserById(guide.auth_user_id, {
-      password: new_password,
-    });
-    if (error) errors.push(`${guide.id}: ${error.message}`);
+    if (guide.auth_user_id) {
+      // 기존 auth 유저: 비밀번호만 변경
+      const { error } = await supabase.auth.admin.updateUserById(guide.auth_user_id, {
+        password: new_password,
+      });
+      if (error) errors.push(`${guide.email}: ${error.message}`);
+    } else {
+      // auth 유저가 없으면 새로 생성하고 연결
+      const { data: newUser, error: createErr } = await supabase.auth.admin.createUser({
+        email: guide.email,
+        password: new_password,
+        email_confirm: true,
+      });
+      if (createErr) {
+        errors.push(`${guide.email}: ${createErr.message}`);
+        continue;
+      }
+      const { error: linkErr } = await supabase
+        .from("guides")
+        .update({ auth_user_id: newUser.user.id })
+        .eq("id", guide.id);
+      if (linkErr) errors.push(`${guide.email}: ${linkErr.message}`);
+    }
   }
 
   if (errors.length > 0) {

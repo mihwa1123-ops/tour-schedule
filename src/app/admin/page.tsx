@@ -1,12 +1,22 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import MonthNav from "@/components/MonthNav";
 
 import { formatDate, isMonday, getDaysInMonth, toDateString } from "@/lib/date-utils";
 import { getCourseColor } from "@/lib/course-utils";
 import { Course, Guide, ScheduleWithDetails, GuideMonthlyCount } from "@/types/database";
+
+type PendingChange = {
+  course_id?: string | null;
+  reservations?: number;
+  bank_transfer?: number;
+  onsite_purchase?: number;
+  confirmed_guide_id?: string | null;
+  vehicle_info?: string;
+  notes?: string;
+};
 
 export default function AdminSchedulePage() {
   const now = new Date();
@@ -17,7 +27,11 @@ export default function AdminSchedulePage() {
   const [guides, setGuides] = useState<Guide[]>([]);
 
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
+  const [pendingChanges, setPendingChanges] = useState<Record<string, PendingChange>>({});
+
+  const hasChanges = Object.keys(pendingChanges).length > 0;
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -39,6 +53,26 @@ export default function AdminSchedulePage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // 브라우저 닫기/새로고침 경고
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      (window as unknown as { __hasUnsavedChanges?: boolean }).__hasUnsavedChanges = hasChanges;
+    }
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      if (hasChanges) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      if (typeof window !== "undefined") {
+        (window as unknown as { __hasUnsavedChanges?: boolean }).__hasUnsavedChanges = false;
+      }
+    };
+  }, [hasChanges]);
+
   async function initMonth() {
     await fetch("/api/schedules", {
       method: "POST",
@@ -48,43 +82,79 @@ export default function AdminSchedulePage() {
     fetchData();
   }
 
-  async function updateSchedule(id: string, field: string, value: string | number | null) {
-    await fetch("/api/schedules", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, [field]: value }),
-    });
-    fetchData();
+  function stageChange(id: string, field: keyof PendingChange, value: string | number | null) {
+    setPendingChanges((prev) => ({
+      ...prev,
+      [id]: { ...prev[id], [field]: value },
+    }));
   }
 
+  async function saveAll() {
+    setSaving(true);
+    try {
+      const entries = Object.entries(pendingChanges);
+      for (const [id, change] of entries) {
+        await fetch("/api/schedules", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, ...change }),
+        });
+      }
+      setPendingChanges({});
+      await fetchData();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // merged 스케줄 (pending 변경사항 반영)
+  const mergedSchedules = useMemo(() => {
+    return schedules.map((s) => {
+      const change = pendingChanges[s.id];
+      if (!change) return s;
+      return { ...s, ...change };
+    });
+  }, [schedules, pendingChanges]);
 
   const monthlyCounts: GuideMonthlyCount[] = guides.map((g) => ({
     guide_id: g.id,
     guide_name: g.name,
-    count: schedules.filter((s) => s.confirmed_guide_id === g.id).length,
+    count: mergedSchedules.filter((s) => s.confirmed_guide_id === g.id).length,
   }));
 
   const days = getDaysInMonth(year, month);
 
   function getScheduleForDate(date: Date): ScheduleWithDetails | undefined {
-    return schedules.find((s) => s.date === toDateString(date));
+    return mergedSchedules.find((s) => s.date === toDateString(date));
+  }
+
+  function tryChangeMonth(action: () => void) {
+    if (hasChanges) {
+      if (!confirm("저장하지 않은 변경사항이 있습니다. 이동하시겠습니까?")) return;
+      setPendingChanges({});
+    }
+    action();
   }
 
   function prevMonth() {
-    if (month === 0) { setYear(year - 1); setMonth(11); }
-    else setMonth(month - 1);
+    tryChangeMonth(() => {
+      if (month === 0) { setYear(year - 1); setMonth(11); }
+      else setMonth(month - 1);
+    });
   }
   function nextMonth() {
-    if (month === 11) { setYear(year + 1); setMonth(0); }
-    else setMonth(month + 1);
+    tryChangeMonth(() => {
+      if (month === 11) { setYear(year + 1); setMonth(0); }
+      else setMonth(month + 1);
+    });
   }
 
   return (
     <AdminLayout>
       <MonthNav year={year} month={month} onPrev={prevMonth} onNext={nextMonth} />
 
-      {/* Sticky 월간 인솔 횟수 바 */}
-      <div className="sticky top-0 z-30 bg-white border-b border-gray-200 px-4 py-2 flex flex-wrap gap-3 items-center shadow-sm">
+      {/* 월간 인솔 횟수 바 */}
+      <div className="bg-white border border-gray-200 rounded-lg px-4 py-2 flex flex-wrap gap-3 items-center shadow-sm mb-4">
         <span className="text-xs font-medium text-gray-500">인솔 횟수:</span>
         {monthlyCounts.map((mc) => (
           <span key={mc.guide_id} className="text-sm">
@@ -109,7 +179,7 @@ export default function AdminSchedulePage() {
       ) : (
         <>
           {/* 데스크탑 테이블 */}
-          <div className="hidden lg:block overflow-x-auto mt-4">
+          <div className="hidden lg:block overflow-x-auto mt-4 pb-20">
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="bg-gray-100 text-left">
@@ -139,14 +209,15 @@ export default function AdminSchedulePage() {
                       </td>
                       {(() => {
                         const color = schedule?.course ? getCourseColor(schedule.course.name) : { bg: "", text: "" };
+                        const currentCourseId = schedule?.course_id || "";
                         return (
                           <td className={`border border-gray-200 px-2 py-1.5 ${monday ? "" : color.bg}`}>
                             {monday ? (
                               <span className="text-gray-400">휴일</span>
                             ) : schedule ? (
                               <select
-                                value={schedule.course_id || ""}
-                                onChange={(e) => updateSchedule(schedule.id, "course_id", e.target.value || null)}
+                                value={currentCourseId}
+                                onChange={(e) => stageChange(schedule.id, "course_id", e.target.value || null)}
                                 className={`w-full bg-transparent text-sm border-0 p-0 focus:ring-0 font-medium ${color.text}`}
                               >
                                 <option value="">-</option>
@@ -164,7 +235,7 @@ export default function AdminSchedulePage() {
                             type="number"
                             min="0"
                             value={schedule.reservations}
-                            onChange={(e) => updateSchedule(schedule.id, "reservations", parseInt(e.target.value) || 0)}
+                            onChange={(e) => stageChange(schedule.id, "reservations", parseInt(e.target.value) || 0)}
                             className="w-14 bg-transparent text-sm border-0 p-0 focus:ring-0"
                           />
                         )}
@@ -175,7 +246,7 @@ export default function AdminSchedulePage() {
                             type="number"
                             min="0"
                             value={schedule.bank_transfer}
-                            onChange={(e) => updateSchedule(schedule.id, "bank_transfer", parseInt(e.target.value) || 0)}
+                            onChange={(e) => stageChange(schedule.id, "bank_transfer", parseInt(e.target.value) || 0)}
                             className="w-14 bg-transparent text-sm border-0 p-0 focus:ring-0"
                           />
                         )}
@@ -186,7 +257,7 @@ export default function AdminSchedulePage() {
                             type="number"
                             min="0"
                             value={schedule.onsite_purchase}
-                            onChange={(e) => updateSchedule(schedule.id, "onsite_purchase", parseInt(e.target.value) || 0)}
+                            onChange={(e) => stageChange(schedule.id, "onsite_purchase", parseInt(e.target.value) || 0)}
                             className="w-14 bg-transparent text-sm border-0 p-0 focus:ring-0"
                           />
                         )}
@@ -205,7 +276,7 @@ export default function AdminSchedulePage() {
                         {!monday && schedule && (
                           <select
                             value={schedule.confirmed_guide_id || ""}
-                            onChange={(e) => updateSchedule(schedule.id, "confirmed_guide_id", e.target.value || null)}
+                            onChange={(e) => stageChange(schedule.id, "confirmed_guide_id", e.target.value || null)}
                             className={`w-full bg-transparent text-sm border-0 p-0 focus:ring-0 ${
                               schedule.confirmed_guide_id ? "font-bold text-indigo-700" : ""
                             }`}
@@ -224,7 +295,7 @@ export default function AdminSchedulePage() {
                               type="text"
                               autoFocus
                               value={schedule.vehicle_info}
-                              onChange={(e) => updateSchedule(schedule.id, "vehicle_info", e.target.value)}
+                              onChange={(e) => stageChange(schedule.id, "vehicle_info", e.target.value)}
                               onBlur={() => setEditingVehicleId(null)}
                               className="w-full bg-transparent text-sm border-0 p-0 focus:ring-0"
                               placeholder="번호/기사/연락처"
@@ -248,7 +319,7 @@ export default function AdminSchedulePage() {
                         {!monday && schedule && (
                           <textarea
                             value={schedule.notes}
-                            onChange={(e) => updateSchedule(schedule.id, "notes", e.target.value)}
+                            onChange={(e) => stageChange(schedule.id, "notes", e.target.value)}
                             className="w-full bg-transparent text-sm border-0 p-0 focus:ring-0 resize-none min-w-[150px]"
                             placeholder="특이사항"
                             rows={Math.max(1, Math.ceil((schedule.notes?.length || 0) / 15))}
@@ -263,7 +334,7 @@ export default function AdminSchedulePage() {
           </div>
 
           {/* 모바일 아코디언 카드 뷰 */}
-          <div className="lg:hidden mt-4 space-y-2">
+          <div className="lg:hidden mt-4 space-y-2 pb-20">
             {days.map((date) => {
               const monday = isMonday(date);
               const schedule = getScheduleForDate(date);
@@ -292,7 +363,7 @@ export default function AdminSchedulePage() {
                           코스
                           <select
                             value={schedule.course_id || ""}
-                            onChange={(e) => updateSchedule(schedule.id, "course_id", e.target.value || null)}
+                            onChange={(e) => stageChange(schedule.id, "course_id", e.target.value || null)}
                             className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
                           >
                             <option value="">-</option>
@@ -305,7 +376,7 @@ export default function AdminSchedulePage() {
                           인솔확정
                           <select
                             value={schedule.confirmed_guide_id || ""}
-                            onChange={(e) => updateSchedule(schedule.id, "confirmed_guide_id", e.target.value || null)}
+                            onChange={(e) => stageChange(schedule.id, "confirmed_guide_id", e.target.value || null)}
                             className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
                           >
                             <option value="">-</option>
@@ -319,19 +390,19 @@ export default function AdminSchedulePage() {
                         <label className="text-xs text-gray-500">
                           예약자
                           <input type="number" min="0" value={schedule.reservations}
-                            onChange={(e) => updateSchedule(schedule.id, "reservations", parseInt(e.target.value) || 0)}
+                            onChange={(e) => stageChange(schedule.id, "reservations", parseInt(e.target.value) || 0)}
                             className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm" />
                         </label>
                         <label className="text-xs text-gray-500">
                           계좌이체
                           <input type="number" min="0" value={schedule.bank_transfer}
-                            onChange={(e) => updateSchedule(schedule.id, "bank_transfer", parseInt(e.target.value) || 0)}
+                            onChange={(e) => stageChange(schedule.id, "bank_transfer", parseInt(e.target.value) || 0)}
                             className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm" />
                         </label>
                         <label className="text-xs text-gray-500">
                           현장구매
                           <input type="number" min="0" value={schedule.onsite_purchase}
-                            onChange={(e) => updateSchedule(schedule.id, "onsite_purchase", parseInt(e.target.value) || 0)}
+                            onChange={(e) => stageChange(schedule.id, "onsite_purchase", parseInt(e.target.value) || 0)}
                             className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm" />
                         </label>
                       </div>
@@ -343,14 +414,14 @@ export default function AdminSchedulePage() {
                       <label className="text-xs text-gray-500">
                         배차정보
                         <input type="text" value={schedule.vehicle_info}
-                          onChange={(e) => updateSchedule(schedule.id, "vehicle_info", e.target.value)}
+                          onChange={(e) => stageChange(schedule.id, "vehicle_info", e.target.value)}
                           className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
                           placeholder="차량번호/기사/연락처" />
                       </label>
                       <label className="text-xs text-gray-500">
                         특이사항
                         <input type="text" value={schedule.notes}
-                          onChange={(e) => updateSchedule(schedule.id, "notes", e.target.value)}
+                          onChange={(e) => stageChange(schedule.id, "notes", e.target.value)}
                           className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
                           placeholder="특이사항" />
                       </label>
@@ -363,6 +434,21 @@ export default function AdminSchedulePage() {
         </>
       )}
 
+      {/* 저장 버튼 - 후터 고정 */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 px-4 py-3 shadow-lg">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <span className="text-sm text-gray-500">
+            {hasChanges ? `${Object.keys(pendingChanges).length}개 변경사항` : "변경사항 없음"}
+          </span>
+          <button
+            onClick={saveAll}
+            disabled={!hasChanges || saving}
+            className="rounded-lg bg-indigo-600 px-6 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:bg-gray-300 disabled:cursor-not-allowed"
+          >
+            {saving ? "저장 중..." : "저장"}
+          </button>
+        </div>
+      </div>
     </AdminLayout>
   );
 }
