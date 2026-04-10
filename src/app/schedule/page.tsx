@@ -269,7 +269,7 @@ export default function GuideSchedulePage() {
                             <span>
                               <span className="font-bold">{total}명</span>
                               <span className="text-xs text-gray-500 ml-1">
-                                ({schedule.reservations}/{schedule.bank_transfer}/{schedule.onsite_purchase})
+                                (예약:{schedule.reservations}/이체:{schedule.bank_transfer}/현장:{schedule.onsite_purchase})
                               </span>
                             </span>
                           )}
@@ -374,7 +374,7 @@ export default function GuideSchedulePage() {
                           <span>
                             <span className="font-bold">{total}명</span>
                             <span className="text-xs text-gray-400 ml-1">
-                              ({schedule.reservations}/{schedule.bank_transfer}/{schedule.onsite_purchase})
+                              (예약:{schedule.reservations}/이체:{schedule.bank_transfer}/현장:{schedule.onsite_purchase})
                             </span>
                           </span>
                         </div>
