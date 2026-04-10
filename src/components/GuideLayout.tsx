@@ -83,7 +83,7 @@ export default function GuideLayout({
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="sticky top-0 z-40 bg-white border-b border-gray-200">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-12">
             <h1 className="text-base font-bold text-gray-900">
               시티투어 인솔자
@@ -100,7 +100,7 @@ export default function GuideLayout({
 
         {/* 탭 메뉴 */}
         <div className="border-t border-gray-100">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6">
             <nav className="flex">
               {navItems.map((item) => (
                 <Link
@@ -124,7 +124,7 @@ export default function GuideLayout({
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 pb-24">{children}</main>
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 pb-24">{children}</main>
     </div>
   );
 }

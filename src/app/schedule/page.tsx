@@ -208,17 +208,17 @@ export default function GuideSchedulePage() {
         ) : (
           <>
             {/* 데스크탑 테이블 */}
-            <div className="hidden md:block overflow-x-auto mt-4">
-              <table className="w-full text-sm border-collapse">
+            <div className="hidden md:block overflow-x-auto mt-4 -mx-4 sm:-mx-6 px-4 sm:px-6">
+              <table className="w-full text-sm border-collapse min-w-[900px]">
                 <thead>
                   <tr className="bg-gray-100 text-left">
-                    <th className="border border-gray-200 px-3 py-2">날짜</th>
-                    <th className="border border-gray-200 px-3 py-2">코스</th>
-                    <th className="border border-gray-200 px-3 py-2">탑승자</th>
-                    <th className="border border-gray-200 px-3 py-2">인솔확정</th>
-                    <th className="border border-gray-200 px-3 py-2">배차정보</th>
-                    <th className="border border-gray-200 px-3 py-2">특이사항</th>
-                    <th className="border border-gray-200 px-3 py-2 text-center">참여</th>
+                    <th className="border border-gray-200 px-3 py-2 whitespace-nowrap">날짜</th>
+                    <th className="border border-gray-200 px-3 py-2 whitespace-nowrap">코스</th>
+                    <th className="border border-gray-200 px-3 py-2 whitespace-nowrap">탑승자</th>
+                    <th className="border border-gray-200 px-3 py-2 whitespace-nowrap">인솔확정</th>
+                    <th className="border border-gray-200 px-3 py-2 whitespace-nowrap">배차정보</th>
+                    <th className="border border-gray-200 px-3 py-2 whitespace-nowrap">특이사항</th>
+                    <th className="border border-gray-200 px-3 py-2 text-center whitespace-nowrap">참여</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -264,7 +264,7 @@ export default function GuideSchedulePage() {
                             </td>
                           );
                         })()}
-                        <td className="border border-gray-200 px-3 py-2">
+                        <td className="border border-gray-200 px-3 py-2 whitespace-nowrap">
                           {!monday && schedule && (
                             <span>
                               <span className="font-bold">{total}명</span>
