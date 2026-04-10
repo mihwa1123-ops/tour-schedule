@@ -170,6 +170,7 @@ export default function GuideSchedulePage() {
   }, [hasChanges]);
 
   const days = getDaysInMonth(year, month);
+  const todayStr = toDateString(new Date());
 
   function getScheduleForDate(date: Date): ScheduleWithDetails | undefined {
     return mergedSchedules.find((s) => s.date === toDateString(date));
@@ -229,6 +230,7 @@ export default function GuideSchedulePage() {
                     const total = schedule
                       ? schedule.reservations + schedule.bank_transfer + schedule.onsite_purchase
                       : 0;
+                    const isToday = toDateString(date) === todayStr;
 
                     return (
                       <tr
@@ -237,6 +239,7 @@ export default function GuideSchedulePage() {
                           monday ? "bg-gray-200 text-gray-400" :
                           isConfirmed ? "bg-indigo-50" : "hover:bg-gray-50"
                         }
+                        style={isToday && !monday ? { outline: "2px solid #6E59FF", outlineOffset: "-1px" } : undefined}
                       >
                         <td className="border border-gray-200 px-3 py-2 whitespace-nowrap font-medium">
                           {formatDate(date)}
@@ -313,15 +316,19 @@ export default function GuideSchedulePage() {
                 const total = schedule
                   ? schedule.reservations + schedule.bank_transfer + schedule.onsite_purchase
                   : 0;
+                const isTodayMobile = toDateString(date) === todayStr;
 
                 return (
                   <details
                     key={toDateString(date)}
-                    className={`rounded-lg border ${
-                      monday ? "bg-gray-100 border-gray-200" :
-                      isConfirmed ? "bg-indigo-50 border-indigo-200" :
-                      "bg-white border-gray-200"
+                    open={isTodayMobile && !monday}
+                    className={`rounded-lg ${
+                      monday ? "bg-gray-100 border border-gray-200" :
+                      isTodayMobile ? "bg-white" :
+                      isConfirmed ? "bg-indigo-50 border border-indigo-200" :
+                      "bg-white border border-gray-200"
                     }`}
+                    style={isTodayMobile && !monday ? { border: "2px solid #6E59FF" } : undefined}
                   >
                     <summary className="px-4 py-3 cursor-pointer flex items-center justify-between">
                       <div className="flex items-center gap-2">
