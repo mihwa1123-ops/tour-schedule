@@ -89,7 +89,7 @@ function ReadField({ label, value }: { label: string; value?: string }) {
   if (!value) return null;
   return (
     <div>
-      <div className="text-xs font-bold text-gray-500 mb-1">{label}</div>
+      <div className="text-sm font-bold mb-1" style={{ color: "#6E59FF" }}>{label}</div>
       <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">{value}</p>
     </div>
   );
