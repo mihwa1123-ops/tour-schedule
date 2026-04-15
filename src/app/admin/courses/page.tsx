@@ -127,7 +127,7 @@ export default function CoursesPage() {
                         </Field>
 
                         <div className="rounded-lg border border-gray-200 p-3 bg-gray-50 space-y-3">
-                          <div className="text-xs font-bold text-gray-700">② 각 코스 상세</div>
+                          <div className="text-sm font-bold" style={{ color: "#6E59FF" }}>② 각 코스 상세</div>
                           <Field label="투어 장소">
                             <textarea
                               value={form.tour_location}
@@ -224,7 +224,7 @@ export default function CoursesPage() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
+      <label className="block text-sm font-semibold mb-1" style={{ color: "#6E59FF" }}>{label}</label>
       {children}
     </div>
   );
@@ -234,7 +234,7 @@ function ReadField({ label, value }: { label: string; value?: string }) {
   if (!value) return null;
   return (
     <div>
-      <div className="text-xs font-semibold text-gray-500">{label}</div>
+      <div className="text-sm font-semibold" style={{ color: "#6E59FF" }}>{label}</div>
       <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">{value}</p>
     </div>
   );
