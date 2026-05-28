@@ -15,6 +15,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "시티투어 인솔자 스케줄",
   description: "시티투어 인솔자 스케줄 관리 시스템",
+  appleWebApp: {
+    capable: true,
+    title: "시티투어 인솔자",
+    statusBarStyle: "default",
+  },
 };
 
 // iOS Safari 가 input 포커스 시 자동 줌 인 하는 것을 방지
